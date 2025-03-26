@@ -27,7 +27,6 @@ leak-check: debug
 
 $(BINARY): $(OBJFILES)
 	@$(CC) -o $@ $^
-	@echo
 
 %.o:%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -42,7 +41,7 @@ help:
 	@echo "Available targets:"
 	@echo "  all         - Build binary (Default target)"
 	@echo "  debug       - Build binary with debugging symbols"
-	@echo "  leak-check  - Build binary with debugging symbols and run valgrind"
+	@echo "  leak-check  - Build binary with debugging symbols and run with valgrind"
 	@echo "  run         - Build binary and execute"
 	@echo "  clean       - Clean up generated files (binary, object files, dependencies)"
 	@echo "  help        - Show help message"
