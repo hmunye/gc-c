@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "obj.h"
-#include "vec.h"
 
 int main(void) {
     obj_t *int_obj = obj_create_int(30);
@@ -59,11 +58,11 @@ int main(void) {
     obj_debug_print(vec_obj);
     printf("\n");
 
-    assert(vec_t_push_back(vec, (void *)int_obj) == SUCCESS);
-    assert(vec_t_push_back(vec, (void *)float_obj) == SUCCESS);
-    assert(vec_t_push_back(vec, (void *)string_obj) == SUCCESS);
-    assert(vec_t_push_back(vec, (void *)tuple) == SUCCESS);
-    assert(vec_t_push_back(vec, (void *)outer_tuple) == SUCCESS);
+    assert(obj_vec_t_push_back(vec, (void *)int_obj) == SUCCESS);
+    assert(obj_vec_t_push_back(vec, (void *)float_obj) == SUCCESS);
+    assert(obj_vec_t_push_back(vec, (void *)string_obj) == SUCCESS);
+    assert(obj_vec_t_push_back(vec, (void *)tuple) == SUCCESS);
+    assert(obj_vec_t_push_back(vec, (void *)outer_tuple) == SUCCESS);
 
     assert(vec->size == 5);
     assert(vec->capacity == 8);
@@ -71,7 +70,44 @@ int main(void) {
     obj_debug_print(vec_obj);
     printf("\n");
 
-    obj_destroy(vec_obj);
+    obj_t *obj = obj_vec_t_pop_back(vec);
+    assert(obj);
+    assert(obj == outer_tuple);
+    assert(vec->size == 4);
+
+    obj_t *string_obj_2 = obj_create_string("bar");
+    assert(string_obj_2);
+    assert(string_obj_2->type == STRING);
+    assert(strcmp(string_obj_2->data.v_str, "bar") == 0);
+
+    obj_debug_print(string_obj_2);
+    printf("\n");
+
+    obj_t *vec_obj_2 = obj_create_vec(2);
+    vec_t *vec_2 = vec_obj_2->data.v_vec;
+    assert(vec_obj_2 && vec_2);
+    assert(vec_obj_2->type == VECTOR);
+    assert(vec_2->size == 0);
+    assert(vec_2->capacity == 2);
+
+    assert(obj_vec_t_push_back(vec_2, (void *)string_obj_2) == SUCCESS);
+    assert(obj_vec_t_push_back(vec_2, (void *)vec_obj) == SUCCESS);
+
+    obj_debug_print(vec_obj_2);
+    printf("\n");
+
+    obj_dec_ref(int_obj);
+    obj_dec_ref(float_obj);
+    obj_dec_ref(string_obj);
+
+    obj_dec_ref(tuple);
+    obj_dec_ref(outer_tuple);
+
+    obj_dec_ref(vec_obj);
+
+    obj_dec_ref(string_obj_2);
+
+    obj_dec_ref(vec_obj_2);
 
     printf("TESTS PASSED\n");
     return 0;
