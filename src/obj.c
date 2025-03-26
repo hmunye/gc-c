@@ -1,8 +1,10 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "obj.h"
+#include "vec.h"
 
 static obj_t *internal_obj_t_create(void) {
     obj_t *obj = malloc(sizeof(obj_t));
@@ -37,7 +39,7 @@ obj_t *obj_create_float(float data) {
     return obj;
 }
 
-obj_t *obj_create_string(const char *restrict data) {
+obj_t *obj_create_string(const char *data) {
     if (!data) {
         return NULL;
     }
@@ -61,7 +63,7 @@ obj_t *obj_create_string(const char *restrict data) {
     return obj;
 }
 
-obj_t *obj_create_tuple(obj_t *x, obj_t *y) {
+obj_t *obj_create_tuple(obj_t *restrict x, obj_t *restrict y) {
     if (!x || !y) {
         return NULL;
     }
@@ -78,6 +80,25 @@ obj_t *obj_create_tuple(obj_t *x, obj_t *y) {
     return obj;
 }
 
+obj_t *obj_create_vec(size_t capacity) {
+    if (capacity == 0) {
+        return NULL;
+    }
+
+    obj_t *obj = internal_obj_t_create();
+    if (!obj) {
+        return NULL;
+    }
+
+    obj->type = VECTOR;
+    if (!(obj->data.v_vec = vec_t_reserve(capacity))) {
+        free(obj);
+        return NULL;
+    }
+
+    return obj;
+}
+
 void obj_destroy(obj_t *obj) {
     if (!obj) {
         return;
@@ -86,32 +107,67 @@ void obj_destroy(obj_t *obj) {
     switch (obj->type) {
         case INT:
         case FLOAT:
-            free(obj);
             break;
         case STRING:
-            if (obj->data.v_str) {
-                free(obj->data.v_str);
-                obj->data.v_str = NULL;
-            }
-
-            free(obj);
+            /* Free dynamically allocated string before freeing the
+             * object */
+            free(obj->data.v_str);
+            obj->data.v_str = NULL;
             break;
         case TUPLE:
-            if (obj->data.v_tuple.x) {
-                obj_destroy(obj->data.v_tuple.x);
-                obj->data.v_tuple.x = NULL;
+            obj_destroy(obj->data.v_tuple.x);
+            obj->data.v_tuple.x = NULL;
+
+            obj_destroy(obj->data.v_tuple.y);
+            obj->data.v_tuple.y = NULL;
+            break;
+        case VECTOR: {
+            vec_t *vec = obj->data.v_vec;
+
+            if (!vec) {
+                break;
             }
 
-            if (obj->data.v_tuple.y) {
-                obj_destroy(obj->data.v_tuple.y);
-                obj->data.v_tuple.y = NULL;
+            if (vec->data) {
+                for (size_t i = 0; i < vec->size; ++i) {
+                    obj_t *elem = (obj_t *)(vec->data[i]);
+
+                    /* If marked as removed (NULL), skip iteration */
+                    if (!elem) {
+                        continue;
+                    }
+
+                    switch (elem->type) {
+                        case STRING:
+                            free(elem->data.v_str);
+                            obj->data.v_str = NULL;
+                            break;
+                        case VECTOR:
+                            /* Recursively free nested objects */
+                            obj_destroy(elem);
+                            /* To avoid double free on `elem` (vector), skip
+                             * iteration after recursive call since it already
+                             * frees itself */
+                            continue;
+                        default:
+                            break;
+                    }
+
+                    free(elem);
+                }
+
+                free(vec->data);
             }
-            free(obj);
+
+            free(vec);
             break;
+        }
         default:
             printf("UNKNOWN TYPE");
-            break;
+            return;
     }
+
+    free(obj);
 }
 
 void obj_debug_print(const obj_t *restrict obj) {
@@ -141,6 +197,28 @@ void obj_debug_print(const obj_t *restrict obj) {
             printf(")");
 
             break;
+        case VECTOR: {
+            vec_t *vec = obj->data.v_vec;
+
+            if (!vec) {
+                printf("LEN: {0} []");
+                break;
+            }
+
+            printf("LEN: {%zu} [", vec->size);
+
+            for (size_t i = 0; i < vec->size; ++i) {
+                obj_t *elem = (obj_t *)(vec->data[i]);
+                obj_debug_print(elem);
+
+                if (i < vec->size - 1) {
+                    printf(", ");
+                }
+            }
+
+            printf("]");
+            break;
+        }
         default:
             printf("UNKNOWN TYPE");
             break;

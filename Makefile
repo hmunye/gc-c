@@ -23,7 +23,7 @@ debug: CFLAGS += $(DFLAGS)
 debug: $(BINARY)
 
 leak-check: debug
-	@valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all ./$(BINARY)
+	@valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all -s ./$(BINARY)
 
 $(BINARY): $(OBJFILES)
 	@$(CC) -o $@ $^

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "obj.h"
+#include "vec.h"
 
 int main(void) {
     obj_t *int_obj = obj_create_int(30);
@@ -48,7 +49,29 @@ int main(void) {
     obj_debug_print(outer_tuple);
     printf("\n");
 
-    obj_destroy(outer_tuple);
+    obj_t *vec_obj = obj_create_vec(4);
+    vec_t *vec = vec_obj->data.v_vec;
+    assert(vec_obj && vec);
+    assert(vec_obj->type == VECTOR);
+    assert(vec->size == 0);
+    assert(vec->capacity == 4);
+
+    obj_debug_print(vec_obj);
+    printf("\n");
+
+    assert(vec_t_push_back(vec, (void *)int_obj) == SUCCESS);
+    assert(vec_t_push_back(vec, (void *)float_obj) == SUCCESS);
+    assert(vec_t_push_back(vec, (void *)string_obj) == SUCCESS);
+    assert(vec_t_push_back(vec, (void *)tuple) == SUCCESS);
+    assert(vec_t_push_back(vec, (void *)outer_tuple) == SUCCESS);
+
+    assert(vec->size == 5);
+    assert(vec->capacity == 8);
+
+    obj_debug_print(vec_obj);
+    printf("\n");
+
+    obj_destroy(vec_obj);
 
     printf("TESTS PASSED\n");
     return 0;
