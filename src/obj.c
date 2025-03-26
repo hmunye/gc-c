@@ -78,6 +78,42 @@ obj_t *obj_create_tuple(obj_t *x, obj_t *y) {
     return obj;
 }
 
+void obj_destroy(obj_t *obj) {
+    if (!obj) {
+        return;
+    }
+
+    switch (obj->type) {
+        case INT:
+        case FLOAT:
+            free(obj);
+            break;
+        case STRING:
+            if (obj->data.v_str) {
+                free(obj->data.v_str);
+                obj->data.v_str = NULL;
+            }
+
+            free(obj);
+            break;
+        case TUPLE:
+            if (obj->data.v_tuple.x) {
+                obj_destroy(obj->data.v_tuple.x);
+                obj->data.v_tuple.x = NULL;
+            }
+
+            if (obj->data.v_tuple.y) {
+                obj_destroy(obj->data.v_tuple.y);
+                obj->data.v_tuple.y = NULL;
+            }
+            free(obj);
+            break;
+        default:
+            printf("UNKNOWN TYPE");
+            break;
+    }
+}
+
 void obj_debug_print(const obj_t *restrict obj) {
     if (!obj) {
         return;

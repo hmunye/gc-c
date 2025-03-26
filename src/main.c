@@ -48,12 +48,7 @@ int main(void) {
     obj_debug_print(outer_tuple);
     printf("\n");
 
-    free(outer_tuple->data.v_tuple.x->data.v_str);
-    free(outer_tuple->data.v_tuple.x);
-    free(outer_tuple->data.v_tuple.y->data.v_tuple.x);
-    free(outer_tuple->data.v_tuple.y->data.v_tuple.y);
-    free(outer_tuple->data.v_tuple.y);
-    free(outer_tuple);
+    obj_destroy(outer_tuple);
 
     printf("TESTS PASSED\n");
     return 0;

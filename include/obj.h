@@ -41,6 +41,9 @@ obj_t *obj_create_string(const char *restrict data);
 /* Allocate and return a new TUPLE `obj_t`, or NULL on failure. */
 obj_t *obj_create_tuple(obj_t *x, obj_t *y);
 
+/* Free the `obj_t` instance and all associated memory. */
+void obj_destroy(obj_t *obj);
+
 /* Print the contents of the given `obj_t` to stdout. */
 void obj_debug_print(const obj_t *restrict obj);
 
