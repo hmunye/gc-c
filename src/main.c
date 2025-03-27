@@ -1,113 +1,69 @@
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "obj.h"
+#include "vm.h"
 
 int main(void) {
-    obj_t *int_obj = obj_create_int(30);
-    assert(int_obj);
-    assert(int_obj->type == INT);
-    assert(int_obj->data.v_int == 30);
+    vm_t *vm = vm_create();
+    frame_t *f = vm_frame_create(vm);
 
-    obj_debug_print(int_obj);
-    printf("\n");
+    obj_t *s = obj_create_string(vm, "foo");
+    vm_frame_track_object(f, s);
 
-    obj_t *float_obj = obj_create_float(48.6f);
-    assert(float_obj);
-    assert(float_obj->type == FLOAT);
-    assert(float_obj->data.v_float == 48.6f);
+    // Nothing should be collected because
+    // we haven't freed the frame
+    assert(s->data.v_str);
 
-    obj_debug_print(float_obj);
-    printf("\n");
+    vm_gc(vm);
 
-    obj_t *string_obj = obj_create_string("foo");
-    assert(string_obj);
-    assert(string_obj->type == STRING);
-    assert(strcmp(string_obj->data.v_str, "foo") == 0);
+    vm_frame_destroy(vec_t_pop_back(vm->frames));
+    vm_gc(vm);
 
-    obj_debug_print(string_obj);
-    printf("\n");
+    // Now string is freed...
 
-    obj_t *tuple = obj_create_tuple(int_obj, float_obj);
-    assert(tuple);
-    assert(tuple->type == TUPLE);
-    assert(tuple->data.v_tuple.x == int_obj);
-    assert(tuple->data.v_tuple.y == float_obj);
+    vm_destroy(vm);
 
-    obj_debug_print(tuple);
-    printf("\n");
+    // =========================================================
 
-    obj_t *outer_tuple = obj_create_tuple(string_obj, tuple);
-    assert(outer_tuple);
-    assert(outer_tuple->type == TUPLE);
-    assert(outer_tuple->data.v_tuple.x == string_obj);
-    assert(outer_tuple->data.v_tuple.y == tuple);
+    vm_t *vm1 = vm_create();
+    frame_t *f1 = vm_frame_create(vm1);
+    frame_t *f2 = vm_frame_create(vm1);
+    frame_t *f3 = vm_frame_create(vm1);
 
-    obj_debug_print(outer_tuple);
-    printf("\n");
+    obj_t *s1 = obj_create_string(vm1, "f00");
+    vm_frame_track_object(f1, s1);
 
-    obj_t *vec_obj = obj_create_vec(4);
-    vec_t *vec = vec_obj->data.v_vec;
-    assert(vec_obj && vec);
-    assert(vec_obj->type == VECTOR);
-    assert(vec->size == 0);
-    assert(vec->capacity == 4);
+    obj_t *s2 = obj_create_string(vm1, "bar");
+    vm_frame_track_object(f2, s2);
 
-    obj_debug_print(vec_obj);
-    printf("\n");
+    obj_t *s3 = obj_create_string(vm1, "baz");
+    vm_frame_track_object(f3, s3);
 
-    assert(obj_vec_t_push_back(vec, (void *)int_obj) == SUCCESS);
-    assert(obj_vec_t_push_back(vec, (void *)float_obj) == SUCCESS);
-    assert(obj_vec_t_push_back(vec, (void *)string_obj) == SUCCESS);
-    assert(obj_vec_t_push_back(vec, (void *)tuple) == SUCCESS);
-    assert(obj_vec_t_push_back(vec, (void *)outer_tuple) == SUCCESS);
+    obj_t *i0 = obj_create_int(vm1, 10);
+    obj_t *i1 = obj_create_int(vm1, 20);
+    obj_t *tup = obj_create_tuple(vm1, i0, i1);
+    vm_frame_track_object(f2, tup);
+    vm_frame_track_object(f3, tup);
 
-    assert(vec->size == 5);
-    assert(vec->capacity == 8);
+    assert(vm1->objects->size == 6);
 
-    obj_debug_print(vec_obj);
-    printf("\n");
+    // Only free frame `f3`
+    vm_frame_destroy(vec_t_pop_back(vm1->frames));
+    vm_gc(vm1);
 
-    obj_t *obj = obj_vec_t_pop_back(vec);
-    assert(obj);
-    assert(obj == outer_tuple);
-    assert(vec->size == 4);
+    // Only string `s3` should be freed, because tuple `tup` is still
+    // referenced in frame `f2`...
 
-    obj_t *string_obj_2 = obj_create_string("bar");
-    assert(string_obj_2);
-    assert(string_obj_2->type == STRING);
-    assert(strcmp(string_obj_2->data.v_str, "bar") == 0);
+    // Free remaining frames
+    vm_frame_destroy(vec_t_pop_back(vm1->frames));
+    vm_frame_destroy(vec_t_pop_back(vm1->frames));
+    vm_gc(vm1);
 
-    obj_debug_print(string_obj_2);
-    printf("\n");
+    // Rest of objects should be freed...
 
-    obj_t *vec_obj_2 = obj_create_vec(2);
-    vec_t *vec_2 = vec_obj_2->data.v_vec;
-    assert(vec_obj_2 && vec_2);
-    assert(vec_obj_2->type == VECTOR);
-    assert(vec_2->size == 0);
-    assert(vec_2->capacity == 2);
+    assert(vm1->objects->size == 0);
 
-    assert(obj_vec_t_push_back(vec_2, (void *)string_obj_2) == SUCCESS);
-    assert(obj_vec_t_push_back(vec_2, (void *)vec_obj) == SUCCESS);
-
-    obj_debug_print(vec_obj_2);
-    printf("\n");
-
-    obj_dec_ref(int_obj);
-    obj_dec_ref(float_obj);
-    obj_dec_ref(string_obj);
-
-    obj_dec_ref(tuple);
-    obj_dec_ref(outer_tuple);
-
-    obj_dec_ref(vec_obj);
-
-    obj_dec_ref(string_obj_2);
-
-    obj_dec_ref(vec_obj_2);
+    vm_destroy(vm1);
 
     printf("TESTS PASSED\n");
     return 0;

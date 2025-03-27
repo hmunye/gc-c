@@ -87,11 +87,11 @@ int vec_t_shrink_to_fit(vec_t *vec) {
 }
 
 int vec_t_clear(vec_t *vec) {
-    if (!vec) {
+    if (!vec || !vec->data) {
         return FAILURE;
     }
 
-    for (size_t i = 0; vec->data && i < vec->size; ++i) {
+    for (size_t i = 0; i < vec->size; ++i) {
         free(vec->data[i]);
         vec->data[i] = NULL;
     }

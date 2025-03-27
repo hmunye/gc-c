@@ -3,22 +3,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "obj.h"
+#include "vm.h"
 
-static obj_t *internal_obj_t_create(void) {
-    obj_t *obj = malloc(sizeof(obj_t));
+static obj_t *internal_obj_t_create(vm_t *vm) {
+    obj_t *obj = calloc(1, sizeof(obj_t));
     if (!obj) {
         return NULL;
     }
 
-    /* Newly created objects begin with a `ref_count` of 1 */
-    obj->ref_count = 1;
+    vm_track_object(vm, obj);
+    /* Each new object is initially not marked  */
+    obj->is_marked = false;
 
     return obj;
 }
 
-obj_t *obj_create_int(int data) {
-    obj_t *obj = internal_obj_t_create();
+obj_t *obj_create_int(vm_t *vm, int data) {
+    obj_t *obj = internal_obj_t_create(vm);
     if (!obj) {
         return NULL;
     }
@@ -29,8 +30,8 @@ obj_t *obj_create_int(int data) {
     return obj;
 }
 
-obj_t *obj_create_float(float data) {
-    obj_t *obj = internal_obj_t_create();
+obj_t *obj_create_float(vm_t *vm, float data) {
+    obj_t *obj = internal_obj_t_create(vm);
     if (!obj) {
         return NULL;
     }
@@ -41,12 +42,12 @@ obj_t *obj_create_float(float data) {
     return obj;
 }
 
-obj_t *obj_create_string(const char *data) {
+obj_t *obj_create_string(vm_t *vm, const char *data) {
     if (!data) {
         return NULL;
     }
 
-    obj_t *obj = internal_obj_t_create();
+    obj_t *obj = internal_obj_t_create(vm);
     if (!obj) {
         return NULL;
     }
@@ -65,12 +66,12 @@ obj_t *obj_create_string(const char *data) {
     return obj;
 }
 
-obj_t *obj_create_tuple(obj_t *restrict x, obj_t *restrict y) {
+obj_t *obj_create_tuple(vm_t *vm, obj_t *restrict x, obj_t *restrict y) {
     if (!x || !y) {
         return NULL;
     }
 
-    obj_t *obj = internal_obj_t_create();
+    obj_t *obj = internal_obj_t_create(vm);
     if (!obj) {
         return NULL;
     }
@@ -79,19 +80,15 @@ obj_t *obj_create_tuple(obj_t *restrict x, obj_t *restrict y) {
     obj->data.v_tuple.x = x;
     obj->data.v_tuple.y = y;
 
-    /* Tuple now hold a reference to both objects */
-    obj_inc_ref(x);
-    obj_inc_ref(y);
-
     return obj;
 }
 
-obj_t *obj_create_vec(size_t capacity) {
+obj_t *obj_create_vec(vm_t *vm, size_t capacity) {
     if (capacity == 0) {
         return NULL;
     }
 
-    obj_t *obj = internal_obj_t_create();
+    obj_t *obj = internal_obj_t_create(vm);
     if (!obj) {
         return NULL;
     }
@@ -113,6 +110,7 @@ void obj_destroy(obj_t *obj) {
     switch (obj->type) {
         case INT:
         case FLOAT:
+        case TUPLE:
             break;
         case STRING:
             /* Free dynamically allocated string before freeing the
@@ -120,24 +118,11 @@ void obj_destroy(obj_t *obj) {
             free(obj->data.v_str);
             obj->data.v_str = NULL;
             break;
-        case TUPLE:
-            /* Decrement the `ref_count` of each referenced object  */
-            obj_dec_ref(obj->data.v_tuple.x);
-            obj_dec_ref(obj->data.v_tuple.y);
-            break;
         case VECTOR: {
-            vec_t *vec = obj->data.v_vec;
-            if (!vec || !vec->data) {
-                break;
-            }
-
-            for (size_t i = 0; i < vec->size; ++i) {
-                /* Decrement `ref_count` of each object referenced by vector */
-                obj_dec_ref((obj_t *)vec->data[i]);
-            }
-
-            free(vec->data);
-            free(vec);
+            /* Free dynamically allocated pointer array before freeing the
+             * object */
+            free(obj->data.v_vec->data);
+            free(obj->data.v_vec);
             break;
         }
         default:
@@ -152,8 +137,6 @@ void obj_debug_print(const obj_t *restrict obj) {
     if (!obj) {
         return;
     }
-
-    printf("{REFS: %zu} -> ", obj->ref_count);
 
     switch (obj->type) {
         case INT:
@@ -203,97 +186,4 @@ void obj_debug_print(const obj_t *restrict obj) {
             printf("UNKNOWN TYPE");
             break;
     }
-}
-
-void obj_inc_ref(obj_t *obj) {
-    if (!obj) {
-        return;
-    }
-
-    ++obj->ref_count;
-}
-
-void obj_dec_ref(obj_t *obj) {
-    if (!obj) {
-        return;
-    }
-
-    if (--obj->ref_count == 0) {
-        obj_destroy(obj);
-    }
-}
-
-obj_t *obj_vec_t_at(const vec_t *vec, size_t pos) {
-    obj_t *obj = (obj_t *)vec_t_at(vec, pos);
-    if (!obj) {
-        return NULL;
-    }
-
-    /* New reference to `obj` now exists */
-    ++obj->ref_count;
-    return obj;
-}
-
-obj_t *obj_vec_t_front(const vec_t *vec) {
-    obj_t *obj = (obj_t *)vec_t_front(vec);
-    if (!obj) {
-        return NULL;
-    }
-
-    /* New reference to `obj` now exists */
-    ++obj->ref_count;
-    return obj;
-}
-
-obj_t *obj_vec_t_back(const vec_t *vec) {
-    obj_t *obj = (obj_t *)vec_t_back(vec);
-    if (!obj) {
-        return NULL;
-    }
-
-    /* New reference to `obj` now exists */
-    ++obj->ref_count;
-    return obj;
-}
-
-int obj_vec_t_insert(vec_t *vec, size_t pos, obj_t *value) {
-    if (vec_t_insert(vec, pos, value) == SUCCESS) {
-        /* Vector now holds a reference to `value` */
-        ++value->ref_count;
-        return SUCCESS;
-    } else {
-        return FAILURE;
-    }
-}
-
-obj_t *obj_vec_t_remove(vec_t *vec, size_t pos) {
-    obj_t *obj = (obj_t *)vec_t_remove(vec, pos);
-    if (!obj) {
-        return NULL;
-    }
-
-    /* Vector releases a reference to `obj` */
-    --obj->ref_count;
-    return obj;
-}
-
-int obj_vec_t_push_back(vec_t *vec, obj_t *value) {
-    if (vec_t_push_back(vec, value) == SUCCESS) {
-        /* Vector now holds a reference to `value` */
-        ++value->ref_count;
-        return SUCCESS;
-    } else {
-        return FAILURE;
-    }
-}
-
-obj_t *obj_vec_t_pop_back(vec_t *vec) {
-    obj_t *obj = (obj_t *)vec_t_pop_back(vec);
-    if (!obj) {
-        return NULL;
-    }
-
-    /* Vector releases a reference to `obj` */
-    --obj->ref_count;
-    return obj;
 }
