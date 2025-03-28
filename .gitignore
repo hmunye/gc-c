@@ -1,4 +1,4 @@
 # build
-objgc
+gc-c
 *.o
 *.d

@@ -1,4 +1,4 @@
-BINARY = objgc
+BINARY = gc-c
 SRCDIRS = . ./src
 INCDIRS = . ./include
 
