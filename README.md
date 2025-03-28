@@ -1,4 +1,4 @@
-# objgc
+# gc-c
 
 A simple object system with **reference counting** and **mark-and-sweep** 
 garbage collection implemented in C. Designed as a learning tool for 
